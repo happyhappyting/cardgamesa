@@ -3,46 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wah! SA 围炉竞技</title>
+    <title>Wah! SA 围炉竞技终极版</title>
     <style>
-        :root { --orange: #f97316; --slate: #1e293b; }
-        body { margin: 0; background: #0f172a; font-family: sans-serif; overflow: hidden; height: 100vh; color: white; }
+        :root { --orange: #f97316; --purple: #8b5cf6; --bg: #0f172a; }
+        body { margin: 0; background: var(--bg); font-family: sans-serif; overflow: hidden; height: 100vh; color: white; user-select: none; }
         
-        #setup-screen { position: fixed; inset: 0; background: var(--slate); z-index: 100; display: flex; align-items: center; justify-content: center; }
-        .setup-box { background: white; color: #333; padding: 25px; border-radius: 20px; width: 300px; text-align: center; }
-        input { padding: 10px; width: 80%; margin: 5px 0; border: 1px solid #ccc; border-radius: 8px; text-align: center; }
-        .btn-start { background: var(--orange); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; width: 100%; margin-top: 15px; }
+        /* 启动界面 */
+        #setup-screen { position: fixed; inset: 0; background: #1e293b; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .setup-box { background: white; color: #333; padding: 30px; border-radius: 25px; width: 320px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .mode-select { display: flex; gap: 10px; margin: 20px 0; }
+        .mode-btn { flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 10px; cursor: pointer; font-weight: bold; background: white; }
+        .mode-btn.active { border-color: var(--orange); color: var(--orange); background: #fff7ed; }
+        .name-input-group { max-height: 200px; overflow-y: auto; margin-bottom: 20px; }
+        input { padding: 12px; width: 85%; margin: 5px 0; border: 1px solid #ddd; border-radius: 10px; text-align: center; font-size: 16px; }
+        .btn-start { background: var(--orange); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; font-size: 18px; }
 
-        /* 游戏布局 */
-        #game-board { position: relative; width: 100vw; height: 100vh; display: grid; grid-template-areas: ". top ." "left center right" ". bottom ."; grid-template-columns: 200px 1fr 200px; grid-template-rows: 200px 1fr 200px; }
-        .center-area { grid-area: center; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.1); border-radius: 30px; margin: 10px; background: rgba(255,255,255,0.05); }
-        .player-zone { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; align-content: center; padding: 10px; }
+        /* 游戏主舞台 */
+        #game-board { position: relative; width: 100vw; height: 100vh; display: grid; 
+            grid-template-areas: ". top ." "left center right" ". bottom ."; 
+            grid-template-columns: 1fr 1.2fr 1fr; grid-template-rows: 1fr 1.2fr 1fr; }
+
+        /* 中央目标区：放射状排列 */
+        .center-area { grid-area: center; position: relative; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.03); border-radius: 50%; margin: 15px; border: 2px dashed rgba(255,255,255,0.1); }
+        .target-card { position: absolute; width: 85px; height: 120px; background: white; color: #333; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 45px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.5); border: 4px solid transparent; transition: 0.3s; cursor: pointer; }
+        .target-card.selected { border-color: #ef4444; transform: scale(1.1) !important; z-index: 100; box-shadow: 0 0 20px #ef4444; }
+
+        /* 玩家区域 */
+        .player-zone { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-content: center; padding: 15px; position: relative; }
         .zone-0 { grid-area: top; transform: rotate(180deg); }
         .zone-1 { grid-area: left; transform: rotate(90deg); }
         .zone-2 { grid-area: right; transform: rotate(-90deg); }
         .zone-3 { grid-area: bottom; }
         
-        .card { width: 50px; height: 75px; background: white; border-radius: 6px; color: #333; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 6px rgba(0,0,0,0.5); }
-        .card.special { background: #8b5cf6; color: white; font-size: 13px; }
-        .card.target { width: 75px; height: 105px; font-size: 38px; }
+        .hand-card { width: 55px; height: 85px; background: white; border-radius: 8px; color: #333; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 3px solid transparent; transition: 0.2s; cursor: pointer; }
+        .hand-card.selected { border-color: #ef4444; transform: scale(1.1); z-index: 50; }
+        .hand-card.special { background: linear-gradient(135deg, #6366f1, var(--purple)); color: white; font-size: 14px; text-align: center; }
+
+        /* 动态对位按钮 */
+        .special-target-btn { position: absolute; z-index: 500; background: var(--orange); color: white; padding: 15px 25px; border-radius: 15px; border: 3px solid white; font-weight: bold; font-size: 18px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); display: none; cursor: pointer; }
+        .btn-pos-0 { top: 10%; left: 50%; transform: translateX(-50%) rotate(180deg); }
+        .btn-pos-1 { left: 10%; top: 50%; transform: translateY(-50%) rotate(90deg); }
+        .btn-pos-2 { right: 10%; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+        .btn-pos-3 { bottom: 10%; left: 50%; transform: translateX(-50%); }
+
+        /* UI文本 */
+        .info-bar { position: absolute; bottom: 5px; width: 100%; display: flex; justify-content: space-between; padding: 0 10px; box-sizing: border-box; pointer-events: none; }
+        .score-val { color: #fbbf24; font-weight: bold; }
+        #game-msg { position: absolute; top: 10px; color: #fbbf24; font-weight: bold; font-size: 14px; z-index: 200; width: 100%; text-align: center; pointer-events: none; }
         
-        /* 弹窗 */
-        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-        .name-label { position: absolute; font-size: 12px; color: #fbbf24; font-weight: bold; bottom: 2px; }
+        /* 结算 */
+        #win-screen { position: fixed; inset: 0; background: var(--orange); z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .rank-box { background: white; color: #333; width: 280px; padding: 15px; border-radius: 15px; margin: 10px; display: flex; justify-content: space-between; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="setup-screen">
         <div class="setup-box">
-            <h3>输入玩家姓名</h3>
-            <div id="name-inputs">
-                <input type="text" id="p0" value="玩家1" placeholder="玩家1">
-                <input type="text" id="p1" value="玩家2" placeholder="玩家2">
-                <input type="text" id="p2" value="玩家3" placeholder="玩家3">
-                <input type="text" id="p3" value="玩家4" placeholder="玩家4">
+            <h2 style="color:var(--orange); margin:0;">Wah! SA 围炉竞技</h2>
+            <p style="font-size:12px; color:gray;">请选择玩家人数并输入名字</p>
+            <div class="mode-select">
+                <div class="mode-btn" id="m2" onclick="setPlayerCount(2)">2人</div>
+                <div class="mode-btn" id="m3" onclick="setPlayerCount(3)">3人</div>
+                <div class="mode-btn active" id="m4" onclick="setPlayerCount(4)">4人</div>
             </div>
-            <button class="btn-start" onclick="startGame()">开始比赛 🚀</button>
+            <div id="name-inputs" class="name-input-group"></div>
+            <button class="btn-start" onclick="initGame()">开始配对挑战 🚀</button>
         </div>
     </div>
 
@@ -51,94 +77,222 @@
         <div id="zone-1" class="player-zone zone-1"></div>
         <div id="zone-2" class="player-zone zone-2"></div>
         <div id="zone-3" class="player-zone zone-3"></div>
+
         <div class="center-area">
-            <div id="msg" style="color:#fbbf24; font-weight:bold; margin-bottom:10px;">开始！</div>
-            <div id="targets" style="display:flex; gap:10px;"></div>
+            <div id="game-msg">准备配对</div>
+            <div id="targets-container" style="position:relative; width:100%; height:100%;"></div>
+            <button onclick="globalDraw()" style="position:absolute; bottom:-40px; background:#475569; border:none; color:white; padding:5px 15px; border-radius:10px; font-size:12px; cursor:pointer;">没人能配对？全员摸牌</button>
         </div>
+
+        <button id="sp-btn-0" class="special-target-btn btn-pos-0" onclick="applySpecial(0)"></button>
+        <button id="sp-btn-1" class="special-target-btn btn-pos-1" onclick="applySpecial(1)"></button>
+        <button id="sp-btn-2" class="special-target-btn btn-pos-2" onclick="applySpecial(2)"></button>
+        <button id="sp-btn-3" class="special-target-btn btn-pos-3" onclick="applySpecial(3)"></button>
     </div>
 
-    <div id="overlay">
-        <div id="overlay-title" style="margin-bottom:20px; font-weight:bold;">对谁使用？</div>
-        <div id="btns" style="width:80%; display:grid; gap:10px;"></div>
+    <div id="win-screen">
+        <h1 style="font-size:60px; margin:0;">🏆</h1>
+        <h2 id="winner-text">获胜！</h2>
+        <div id="ranks"></div>
+        <button class="btn-start" style="background:white; color:var(--orange); width:200px;" onclick="location.reload()">再玩一局</button>
     </div>
 
 <script>
-    let players = [];
-    let targets = [];
-    let deck = [];
-    let words = ["坚持不懈", "开卷有益", "以礼待人", "新颖", "戏剧", "工作坊", "尴尬", "维护", "友谊", "一帆顺"];
-    let specials = ["万能", "小偷", "换手", "+2", "禁止"];
-    let sel = { pid: null, hIdx: null };
+    let config = { count: 4, players: [], deck: [], targets: [], activeWords: [] };
+    let selection = { pid: null, hIdx: null, tIdx: null, type: null };
 
-    function startGame() {
-        players = [];
-        for(let i=0; i<4; i++) {
-            players.push({ name: document.getElementById('p'+i).value, hand: [] });
+    const WORD_LIB = ["坚持不懈", "开卷有益", "以礼待人", "新颖", "戏剧", "工作坊", "尴尬", "维护", "友谊", "一帆风顺", "有效", "策略", "嘉宾", "辅导员", "赖床", "滋味", "催促", "哀求", "硬着头皮", "藤鞭", "抡", "挨打", "女佣", "雨篷", "泪痕", "早晨", "猛", "嗓子眼", "允许", "相貌", "讲究", "何必", "记账", "亏", "撇", "慢条斯理", "起航", "焦急"];
+    const SPECIALS = ["万能", "小偷", "换手", "+2", "禁止"];
+
+    // 1. 初始化人数输入
+    function setPlayerCount(n) {
+        config.count = n;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('m'+n).classList.add('active');
+        const container = document.getElementById('name-inputs');
+        container.innerHTML = '';
+        for(let i=0; i<n; i++) {
+            container.innerHTML += `<input type="text" id="in-${i}" value="学生${i+1}" maxlength="5">`;
         }
-        let chars = words.join('').split('');
-        specials.forEach(s => chars.push(s, s));
-        deck = chars.sort(() => 0.5 - Math.random());
-        players.forEach(p => p.hand = deck.splice(0, 6));
-        targets = deck.splice(0, 3);
+    }
+    setPlayerCount(4);
+
+    // 2. 游戏初始化
+    function initGame() {
+        // 精选10个词降低难度
+        config.activeWords = [...WORD_LIB].sort(() => 0.5 - Math.random()).slice(0, 10);
+        let chars = config.activeWords.join('').split('');
+        SPECIALS.forEach(s => { chars.push(s, s); }); // 每种功能牌2张
+        config.deck = chars.sort(() => 0.5 - Math.random());
+
+        config.players = [];
+        // 定义不同人数下的座位分布 [上, 左, 右, 下]
+        let seatMap = config.count === 2 ? [0, 3] : (config.count === 3 ? [0, 1, 3] : [0, 1, 2, 3]);
+        
+        for(let i=0; i<4; i++) {
+            let activeIdx = seatMap.indexOf(i);
+            if(activeIdx !== -1) {
+                config.players[i] = {
+                    name: document.getElementById('in-'+activeIdx).value,
+                    hand: config.deck.splice(0, 6),
+                    score: 0,
+                    active: true
+                };
+            } else {
+                config.players[i] = { active: false, hand: [] };
+                document.getElementById('zone-'+i).style.display = 'none';
+            }
+        }
+        config.targets = config.deck.splice(0, 3);
         document.getElementById('setup-screen').style.display = 'none';
         render();
     }
 
+    // 3. 核心渲染
     function render() {
-        for(let i=0; i<4; i++) {
-            const z = document.getElementById('zone-'+i);
-            z.innerHTML = `<div class="name-label">${players[i].name}</div>`;
-            players[i].hand.forEach((c, idx) => {
-                let div = document.createElement('div');
-                div.className = 'card ' + (specials.includes(c) ? 'special' : '');
-                div.innerText = c;
-                div.onclick = () => {
-                    sel = {pid: i, hIdx: idx};
-                    if(specials.includes(c) && c !== "万能") showMenu(i, c);
-                    else if(c === "万能") document.getElementById('msg').innerText = "选一个目标字";
-                };
-                z.appendChild(div);
+        // 渲染玩家手牌
+        config.players.forEach((p, i) => {
+            if(!p.active) return;
+            const zone = document.getElementById('zone-'+i);
+            zone.innerHTML = `<div class="info-bar"><span>${p.name}</span><span class="score-val">${p.score}分</span></div>`;
+            p.hand.forEach((card, idx) => {
+                let d = document.createElement('div');
+                d.className = `hand-card ${SPECIALS.includes(card)?'special':''} ${selection.pid===i && selection.hIdx===idx?'selected':''}`;
+                d.innerText = card;
+                d.onclick = () => selectHand(i, idx);
+                zone.appendChild(d);
             });
-        }
-        const t = document.getElementById('targets');
-        t.innerHTML = '';
-        targets.forEach((tar, idx) => {
-            let div = document.createElement('div');
-            div.className = 'card target';
-            div.innerText = tar;
-            div.onclick = () => {
-                if(sel.pid !== null) {
-                    let h = players[sel.pid].hand[sel.hIdx];
-                    if(h === "万能" || words.some(w => w.includes(h) && w.includes(tar))) {
-                        players[sel.pid].hand.splice(sel.hIdx, 1);
-                        targets[idx] = deck.shift() || "";
-                        document.getElementById('msg').innerText = players[sel.pid].name + " 配对成功！";
-                        render();
-                    }
-                }
-            };
-            t.appendChild(div);
+        });
+
+        // 渲染放射状目标牌
+        const tContainer = document.getElementById('targets-container');
+        tContainer.innerHTML = '';
+        const angles = [0, 120, 240];
+        config.targets.forEach((tar, idx) => {
+            if(!tar) return;
+            let d = document.createElement('div');
+            d.className = `target-card ${selection.tIdx===idx?'selected':''}`;
+            d.innerText = tar;
+            d.style.transform = `rotate(${angles[idx]}deg) translateY(-40px)`;
+            d.onclick = () => selectTarget(idx);
+            tContainer.appendChild(d);
         });
     }
 
-    function showMenu(pid, type) {
-        document.getElementById('overlay').style.display = 'flex';
-        const btns = document.getElementById('btns');
-        btns.innerHTML = '';
-        players.forEach((p, i) => {
-            if(i !== pid) {
-                let b = document.createElement('button');
-                b.style.padding = '15px'; b.innerText = p.name;
-                b.onclick = () => {
-                    // 功能牌效果
-                    if(type === "小偷") players[pid].hand.push(players[i].hand.pop());
-                    if(type === "换手") { let t = players[pid].hand; players[pid].hand = players[i].hand; players[i].hand = t; }
-                    players[pid].hand.splice(sel.hIdx, 1);
-                    document.getElementById('overlay').style.display = 'none';
-                    render();
-                };
-                btns.appendChild(b);
+    // 4. 选择逻辑
+    function selectHand(pid, idx) {
+        const card = config.players[pid].hand[idx];
+        selection.pid = pid;
+        selection.hIdx = idx;
+        selection.type = card;
+
+        if(SPECIALS.includes(card) && card !== "万能") {
+            showSpecialTargets(pid, card);
+        } else {
+            hideSpecialButtons();
+            checkMatch();
+        }
+        render();
+    }
+
+    function selectTarget(idx) {
+        selection.tIdx = idx;
+        checkMatch();
+        render();
+    }
+
+    function checkMatch() {
+        if(selection.pid !== null && selection.hIdx !== null && selection.tIdx !== null) {
+            const h = config.players[selection.pid].hand[selection.hIdx];
+            const t = config.targets[selection.tIdx];
+            
+            const match = (h === "万能") || config.activeWords.some(w => w.includes(h) && w.includes(t) && h !== t);
+            
+            if(match) {
+                config.players[selection.pid].hand.splice(selection.hIdx, 1);
+                config.players[selection.pid].score += 10;
+                config.targets[selection.tIdx] = config.deck.shift() || "";
+                msg(`✅ ${config.players[selection.pid].name} 配对成功！`);
+                if(config.players[selection.pid].hand.length === 0) showWin(selection.pid);
+                resetSelection();
+            } else {
+                msg("❌ 无法组成词语");
+                resetSelection();
             }
+            render();
+        }
+    }
+
+    // 5. 功能牌处理
+    function showSpecialTargets(fromPid, type) {
+        hideSpecialButtons();
+        config.players.forEach((p, i) => {
+            if(p.active && i !== fromPid) {
+                const btn = document.getElementById('sp-btn-'+i);
+                btn.innerText = `${type} 对付 ${p.name}`;
+                btn.style.display = 'block';
+            }
+        });
+        msg(`使用「${type}」，请点击目标玩家名字`);
+    }
+
+    function applySpecial(toPid) {
+        const fromP = config.players[selection.pid];
+        const toP = config.players[toPid];
+        const type = selection.type;
+
+        if(type === "小偷") fromP.hand.push(toP.hand.splice(Math.floor(Math.random()*toP.hand.length), 1)[0]);
+        if(type === "+2") toP.hand.push(...config.deck.splice(0, 2));
+        if(type === "禁止") msg(`🚫 ${toP.name} 暂停操作一次！`);
+        if(type === "换手") {
+            let myNew = [...toP.hand];
+            let toNew = [...fromP.hand];
+            toNew.splice(selection.hIdx, 1);
+            fromP.hand = myNew; toP.hand = toNew;
+        }
+
+        if(type !== "换手") fromP.hand.splice(selection.hIdx, 1);
+        
+        hideSpecialButtons();
+        if(fromP.hand.length === 0) showWin(selection.pid);
+        resetSelection();
+        render();
+    }
+
+    // 6. 辅助功能
+    function globalDraw() {
+        config.players.forEach(p => { if(p.active && config.deck.length > 0) p.hand.push(config.deck.shift()); });
+        msg("🔄 陷入僵局，全员摸牌");
+        render();
+    }
+
+    function hideSpecialButtons() {
+        for(let i=0; i<4; i++) document.getElementById('sp-btn-'+i).style.display = 'none';
+    }
+
+    function resetSelection() { selection = { pid: null, hIdx: null, tIdx: null, type: null }; }
+
+    function msg(m) {
+        const el = document.getElementById('game-msg');
+        el.innerText = m;
+        setTimeout(() => { if(el.innerText === m) el.innerText = ""; }, 3000);
+    }
+
+    function showWin(pid) {
+        const winS = document.getElementById('win-screen');
+        winS.style.display = 'flex';
+        document.getElementById('winner-text').innerText = config.players[pid].name + " 彻底出完了！";
+        
+        const rankEl = document.getElementById('ranks');
+        rankEl.innerHTML = '';
+        
+        // 最终结算：获胜+50，每剩一张牌扣5分
+        config.players.forEach(p => { if(p.active) p.score -= (p.hand.length * 5); });
+        config.players[pid].score += 50;
+
+        let sorted = config.players.filter(p => p.active).sort((a,b) => b.score - a.score);
+        sorted.forEach((p, idx) => {
+            rankEl.innerHTML += `<div class="rank-item"><span>第${idx+1}名: ${p.name}</span><span>${p.score}分</span></div>`;
         });
     }
 </script>
