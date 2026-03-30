@@ -4,28 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wah! SA 你配不配</title>
-    <script src="https://cdn.staticfile.org/vue/3.3.4/vue.global.prod.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.staticfile.org/canvas-confetti/1.6.0/confetti.browser.min.js"></script>
     <style>
-        /* 使用系统自带备用字体，防止加载延迟 */
-        body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background-color: #f0f4f8; }
-        .card { transition: all 0.2s; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .card-selected { border: 5px solid #ef4444 !important; transform: translateY(-10px); z-index: 10; }
+        body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; background-color: #f8fafc; margin: 0; }
+        .card { transition: all 0.2s; cursor: pointer; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .card-selected { border: 5px solid #ef4444 !important; transform: translateY(-10px); }
         .special-card { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; }
-        [v-cloak] { display: none; }
+        [v-cloak] { display: none !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="fixed inset-0 overflow-hidden">
 
-<div id="app" v-cloak class="h-full flex flex-col">
+<div id="app" class="h-full flex flex-col">
     
     <div v-if="gameState === 'setup'" class="flex-1 flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border-b-8 border-orange-500 text-center">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border-t-8 border-orange-500 text-center">
             <h1 class="text-4xl font-bold text-orange-600 mb-8">Wah! SA 你配不配</h1>
             
-            <div class="mb-6">
+            <div class="mb-6 text-left">
                 <label class="block font-bold text-gray-700 mb-2">玩家人数 (2-6人):</label>
                 <div class="flex items-center justify-between bg-gray-100 p-2 rounded-2xl">
                     <button @click="if(playerCount > 2) playerCount--" class="w-12 h-12 bg-white rounded-xl shadow text-2xl font-bold">-</button>
@@ -55,7 +52,7 @@
             <div class="flex gap-3">
                 <div v-for="(target, index) in targetCards" :key="index" 
                      @click="selectTarget(index)"
-                     class="card w-24 h-36 md:w-32 md:h-48 bg-white rounded-xl shadow-lg flex items-center justify-center text-5xl font-bold border-4"
+                     class="card w-24 h-36 md:w-32 md:h-48 bg-white rounded-xl shadow-lg text-5xl font-bold border-4"
                      :class="selectedTargetIndex === index ? 'border-red-500 bg-red-50' : 'border-gray-200'">
                     {{ target }}
                 </div>
@@ -64,40 +61,53 @@
                     <span class="text-xs">摸牌</span>
                 </div>
             </div>
-            <div class="h-8 text-orange-600 font-bold text-lg">{{ feedback }}</div>
+            <div class="h-8 text-orange-600 font-bold text-lg text-center">{{ feedback }}</div>
         </div>
 
         <div class="bg-gray-200/50 p-4 rounded-t-3xl border-t-2 border-orange-200">
             <div class="flex overflow-x-auto gap-3 pb-4 no-scrollbar">
                 <div v-for="(card, index) in currentPlayer.hand" :key="index"
                      @click="selectHand(index)"
-                     class="card min-w-[70px] h-28 md:min-w-[90px] md:h-36 rounded-xl shadow-md flex items-center justify-center text-4xl font-bold border-2"
+                     class="card min-w-[75px] h-28 md:min-w-[95px] md:h-36 rounded-xl shadow-md text-4xl font-bold border-2"
                      :class="[selectedHandIndex === index ? 'card-selected' : '', isSpecial(card) ? 'special-card' : 'bg-white border-white text-gray-800']">
                     {{ card }}
                 </div>
             </div>
-            <div class="text-center text-xs text-gray-500 font-bold">请点击一张手牌再点目标牌</div>
+            <div class="text-center text-xs text-gray-500 font-bold">点击一张手牌再点目标牌进行配对</div>
         </div>
     </div>
 
     <div v-if="gameState === 'ended'" class="flex-1 flex items-center justify-center bg-orange-500 p-4">
-        <div class="bg-white p-10 rounded-[2rem] text-center w-full max-w-sm">
+        <div class="bg-white p-10 rounded-[2rem] shadow-2xl text-center w-full max-w-sm">
             <div class="text-6xl mb-4">🏆</div>
-            <h2 class="text-2xl font-bold mb-2">获胜者</h2>
+            <h2 class="text-2xl font-bold mb-2">恭喜获胜者</h2>
             <div class="text-5xl font-bold text-orange-600 mb-8">{{ winner.name }}</div>
-            <button @click="resetGame" class="w-full bg-green-500 text-white text-xl font-bold py-4 rounded-xl">再玩一次</button>
+            <button @click="resetGame" class="w-full bg-green-500 text-white text-xl font-bold py-4 rounded-xl">重新开始</button>
         </div>
     </div>
 
     <div v-if="showTargetPicker" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
-        <div class="bg-white p-6 rounded-2xl w-full max-w-xs text-center">
-            <h3 class="font-bold mb-4">对谁使用「{{ lastPlayedSpecial }}」？</h3>
+        <div class="bg-white p-6 rounded-3xl w-full max-w-xs text-center">
+            <h3 class="font-bold mb-4 text-xl">对谁使用「{{ lastPlayedSpecial }}」？</h3>
             <div class="flex flex-col gap-2">
-                <button v-for="p in otherPlayers" @click="resolveSpecial(p)" class="p-3 bg-indigo-50 rounded-lg font-bold text-indigo-800">{{ p.name }}</button>
+                <button v-for="p in otherPlayers" @click="resolveSpecial(p)" class="p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl font-bold text-indigo-800 border border-indigo-200">{{ p.name }}</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    /* 此处是核心逻辑，手动实现简易双向绑定 */
+    const { createApp, ref, computed } = Vue = (function() {
+        // 如果 CDN 加载失败，这里会报错，所以我们通过这种方式提示
+        if (typeof Vue === 'undefined') {
+            document.write('<script src="https://unpkg.com/vue@3/dist/vue.global.js"><\/script>');
+        }
+    })();
+</script>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 <script>
 const { createApp, ref, computed } = Vue;
@@ -105,7 +115,7 @@ createApp({
     setup() {
         const gameState = ref('setup');
         const playerCount = ref(4);
-        const playerNames = ref(['阿杜', '小明', '美美', '乐乐', '大华', '小芳']);
+        const playerNames = ref(['小强', '小明', '美美', '乐乐', '大华', '小芳']);
         const players = ref([]);
         const turnIndex = ref(0);
         const deck = ref([]);
@@ -122,19 +132,19 @@ createApp({
 
         const startGame = () => {
             let s = wordLib.join('').split('');
-            specialCards.forEach(x => s.push(x, x));
+            specialCards.forEach(x => { s.push(x); s.push(x); });
             s.sort(() => Math.random() - 0.5);
             deck.value = s;
             players.value = [];
             for (let i = 0; i < playerCount.value; i++) {
-                players.value.push({ name: playerNames.value[i] || `玩家${i+1}`, hand: deck.value.splice(0, 6), isSkipped: false });
+                players.value.push({ name: playerNames.value[i] || `学生${i+1}`, hand: deck.value.splice(0, 6), isSkipped: false });
             }
             targetCards.value = deck.value.splice(0, 3);
             gameState.value = 'playing';
             turnIndex.value = 0;
         };
 
-        const currentPlayer = computed(() => players.value[turnIndex.value]);
+        const currentPlayer = computed(() => players.value[turnIndex.value] || { name: '', hand: [] });
         const otherPlayers = computed(() => players.value.filter(p => p !== currentPlayer.value));
 
         const selectHand = (idx) => {
@@ -142,28 +152,28 @@ createApp({
             if (isSpecial(card)) {
                 lastPlayedSpecial.value = card;
                 selectedHandIndex.value = idx;
-                if (card === "万能") feedback.value = "点击目标牌配对";
+                if (card === "万能") feedback.value = "万能字：请选择目标牌配对";
                 else showTargetPicker.value = true;
                 return;
             }
             selectedHandIndex.value = idx;
-            check();
+            checkMatch();
         };
 
-        const selectTarget = (idx) => { selectedTargetIndex.value = idx; check(); };
+        const selectTarget = (idx) => { selectedTargetIndex.value = idx; checkMatch(); };
 
-        const check = () => {
+        const checkMatch = () => {
             if (selectedHandIndex.value !== null && selectedTargetIndex.value !== null) {
                 const c1 = currentPlayer.value.hand[selectedHandIndex.value];
                 const c2 = targetCards.value[selectedTargetIndex.value];
-                const ok = (c1 === "万能") || wordLib.some(w => w.includes(c1) && w.includes(c2) && c1 !== c2);
-                if (ok) {
+                const isWin = (c1 === "万能") || wordLib.some(w => w.includes(c1) && w.includes(c2) && c1 !== c2);
+                if (isWin) {
                     currentPlayer.value.hand.splice(selectedHandIndex.value, 1);
                     if (deck.value.length > 0) targetCards.value[selectedTargetIndex.value] = deck.value.shift();
                     else targetCards.value.splice(selectedTargetIndex.value, 1);
-                    if (currentPlayer.value.hand.length === 0) { gameState.value = 'ended'; confetti(); }
+                    if (currentPlayer.value.hand.length === 0) { gameState.value = 'ended'; if(window.confetti) confetti(); }
                     else next();
-                } else { feedback.value = "无法配对"; selectedHandIndex.value = null; selectedTargetIndex.value = null; }
+                } else { feedback.value = "❌ 无法配对"; selectedHandIndex.value = null; selectedTargetIndex.value = null; setTimeout(() => feedback.value = "", 1500); }
             }
         };
 
@@ -190,7 +200,7 @@ createApp({
             else gameState.value = 'ended';
         };
 
-        const resetGame = () => gameState.value = 'setup';
+        const resetGame = () => { gameState.value = 'setup'; };
         const winner = computed(() => [...players.value].sort((a,b) => a.hand.length - b.hand.length)[0]);
 
         return { gameState, playerCount, playerNames, players, currentPlayer, targetCards, deck, feedback, selectedHandIndex, selectedTargetIndex, showTargetPicker, lastPlayedSpecial, otherPlayers, startGame, selectHand, selectTarget, drawCard, winner, resetGame, resolveSpecial, isSpecial };
