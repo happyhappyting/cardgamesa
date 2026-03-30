@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wah! SA 你配不配 - 完整版</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+        .font-game { font-family: 'ZCOOL KuaiLe', cursive; }
+        .card { transition: all 0.2s; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .card:active { transform: scale(0.95); }
+        .card-selected { border: 5px solid #ef4444 !important; transform: translateY(-15px); z-index: 10; shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .special-card { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; border: 2px solid #4338ca; }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 fixed inset-0 overflow-hidden font-sans">
+
+<div id="app" v-cloak class="h-full flex flex-col">
+    
+    <div v-if="gameState === 'setup'" class="flex-1 flex items-center justify-center p-6">
+        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-lg w-full border-b-8 border-orange-500">
+            <h1 class="text-6xl font-game text-center text-orange-600 mb-8">Wah! SA<br>你配不配</h1>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block font-bold text-gray-700 mb-2 text-xl">👤 玩家人数 (4-6人):</label>
+                    <div class="flex items-center gap-6 bg-slate-100 p-3 rounded-2xl">
+                        <button @click="if(playerCount > 2) playerCount--" class="text-3xl font-bold w-12 h-12 bg-white rounded-xl shadow">-</button>
+                        <span class="text-3xl font-black text-orange-600 flex-1 text-center">{{ playerCount }}</span>
+                        <button @click="if(playerCount < 6) playerCount++" class="text-3xl font-bold w-12 h-12 bg-white rounded-xl shadow">+</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 max-h-40 overflow-y-auto p-2">
+                    <input v-for="n in playerCount" :key="n" v-model="playerNames[n-1]" :placeholder="'玩家 ' + n + ' 名字'" 
+                           class="p-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-orange-500 outline-none font-bold text-center">
+                </div>
+
+                <button @click="startGame" class="w-full bg-orange-500 hover:bg-orange-600 text-white text-3xl font-game py-6 rounded-2xl shadow-xl transform active:scale-95 transition">
+                    🎮 开始游戏！
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="gameState === 'playing'" class="flex-1 flex flex-col relative p-4">
+        
+        <div class="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm mb-4 border-2 border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="w-4 h-4 rounded-full bg-green-500 animate-pulse"></div>
+                <span class="text-xl font-bold text-slate-700">轮到：<span class="text-orange-600 underline">{{ currentPlayer.name }}</span></span>
+            </div>
+            <div class="font-bold text-slate-500">🎴 牌堆: {{ deck.length }}</div>
+        </div>
+
+        <div class="flex-1 flex flex-col items-center justify-center gap-6">
+            <div class="flex gap-4 items-end">
+                <div v-for="(target, index) in targetCards" :key="index" 
+                     @click="selectTarget(index)"
+                     class="card w-28 h-40 md:w-36 md:h-52 bg-white rounded-2xl shadow-xl flex items-center justify-center text-6xl font-game border-4 border-slate-300 relative"
+                     :class="selectedTargetIndex === index ? 'border-red-500 bg-red-50 -translate-y-4 shadow-red-200' : ''">
+                    <span class="absolute top-2 left-2 text-xs text-slate-400 font-sans">目标</span>
+                    {{ target }}
+                </div>
+                
+                <div @click="drawCard" class="card w-24 h-36 md:w-28 md:h-44 bg-slate-800 rounded-2xl shadow-xl flex flex-col items-center justify-center text-white border-4 border-slate-900 ml-4 group">
+                    <div class="text-3xl mb-1 group-hover:rotate-12 transition">🃏</div>
+                    <div class="font-bold text-sm">无法配对</div>
+                    <div class="text-xs opacity-60 italic">点击摸牌</div>
+                </div>
+            </div>
+
+            <div class="h-10">
+                <transition name="bounce">
+                    <p v-if="feedback" class="text-xl font-bold text-white bg-slate-800 px-6 py-2 rounded-full shadow-lg">{{ feedback }}</p>
+                </transition>
+            </div>
+        </div>
+
+        <div class="bg-orange-50 p-6 rounded-[2.5rem] border-t-4 border-orange-200 shadow-inner relative overflow-visible">
+            <div class="flex overflow-x-auto gap-4 py-6 px-4 justify-start no-scrollbar">
+                <div v-for="(card, index) in currentPlayer.hand" :key="index"
+                     @click="selectHand(index)"
+                     class="card min-w-[85px] h-32 md:min-w-[110px] md:h-40 rounded-2xl shadow-md flex items-center justify-center text-5xl font-game border-4"
+                     :class="[
+                        selectedHandIndex === index ? 'card-selected' : '',
+                        isSpecial(card) ? 'special-card' : 'bg-white border-slate-100 text-slate-800'
+                     ]">
+                    {{ card }}
+                </div>
+            </div>
+            <div class="flex justify-between items-center px-4">
+                <span class="text-orange-800 font-bold">你的手牌 ({{ currentPlayer.hand.length }}张)</span>
+                <span class="text-xs text-orange-400">点击一张自己的牌，再点击桌面的字配对</span>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="gameState === 'ended'" class="flex-1 flex items-center justify-center bg-orange-600 p-4">
+        <div class="bg-white p-12 rounded-[3rem] shadow-2xl text-center w-full max-w-lg border-8 border-yellow-400 relative">
+            <div class="absolute -top-16 left-1/2 -translate-x-1/2 text-9xl">👑</div>
+            <h2 class="text-4xl font-game mt-4 mb-2">🎉 获胜者出炉！</h2>
+            <div class="text-7xl font-black text-orange-600 my-8 scale-110">{{ winner.name }}</div>
+            
+            <div class="space-y-3 mb-10">
+                <div v-for="p in sortedPlayers" class="flex justify-between p-3 bg-slate-50 rounded-xl font-bold border-2 border-slate-100">
+                    <span>{{ p.name }}</span>
+                    <span>剩余 {{ p.hand.length }} 张牌</span>
+                </div>
+            </div>
+
+            <button @click="resetGame" class="w-full bg-green-500 hover:bg-green-600 text-white text-3xl font-game py-6 rounded-3xl shadow-lg active:scale-95 transition">
+                重整旗鼓 再玩一次!
+            </button>
+        </div>
+    </div>
+
+    <div v-if="showTargetPicker" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+        <div class="bg-white p-8 rounded-3xl w-full max-w-sm text-center">
+            <h3 class="text-2xl font-bold mb-6 text-indigo-600">你要对谁使用「{{ lastPlayedSpecial }}」？</h3>
+            <div class="grid grid-cols-1 gap-3">
+                <button v-for="(p, idx) in otherPlayers" :key="idx" 
+                        @click="resolveSpecial(p)"
+                        class="p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-xl font-bold text-indigo-800 border-2 border-indigo-200">
+                    {{ p.name }} (剩{{ p.hand.length }}张)
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue;
+
+createApp({
+    setup() {
+        const gameState = ref('setup');
+        const playerCount = ref(4);
+        const playerNames = ref(['阿杜', '小明', '美美', '乐乐', '王老师', '小华']);
+        const players = ref([]);
+        const turnIndex = ref(0);
+        const deck = ref([]);
+        const targetCards = ref([]);
+        const feedback = ref('');
+        const selectedHandIndex = ref(null);
+        const selectedTargetIndex = ref(null);
+        
+        // 功能牌弹窗控制
+        const showTargetPicker = ref(false);
+        const lastPlayedSpecial = ref('');
+
+        const wordLib = [
+            "坚持不懈", "开卷有益", "以礼待人", "新颖", "戏剧", "工作坊", "尴尬", "维护", "友谊", "一帆风顺", "有效", "策略", "嘉宾", "辅导员",
+            "赖床", "滋味", "催促", "哀求", "硬着头皮", "藤鞭", "抡", "挨打", "女佣", "雨篷", "泪痕", "早晨", "猛", "嗓子眼", "允许",
+            "相貌", "讲究", "何必", "记账", "亏", "撇", "慢条斯理", "起航", "焦急"
+        ];
+        
+        const specialCards = ["万能", "小偷", "换手", "+2", "禁止"];
+
+        const isSpecial = (card) => specialCards.includes(card);
+
+        const initDeck = () => {
+            // 生成字卡 (基于词库)
+            let chars = wordLib.join('').split('');
+            // 加入功能牌 (每种各2张，增加趣味性)
+            specialCards.forEach(s => {
+                chars.push(s, s); 
+            });
+            // 洗牌
+            for (let i = chars.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [chars[i], chars[j]] = [chars[j], chars[i]];
+            }
+            deck.value = chars;
+        };
+
+        const startGame = () => {
+            initDeck();
+            players.value = [];
+            for (let i = 0; i < playerCount.value; i++) {
+                players.value.push({
+                    name: playerNames.value[i] || `学生${i+1}`,
+                    hand: deck.value.splice(0, 6), // 规则：每人抽取6张手牌
+                    isSkipped: false
+                });
+            }
+            targetCards.value = deck.value.splice(0, 3); // 规则：翻开3张词语目标牌
+            gameState.value = 'playing';
+            turnIndex.value = 0;
+        };
+
+        const currentPlayer = computed(() => players.value[turnIndex.value]);
+        const otherPlayers = computed(() => players.value.filter(p => p !== currentPlayer.value));
+
+        const selectHand = (index) => {
+            const card = currentPlayer.value.hand[index];
+            if (isSpecial(card)) {
+                useSpecial(index, card);
+                return;
+            }
+            selectedHandIndex.value = index;
+            checkMatch();
+        };
+
+        const selectTarget = (index) => {
+            selectedTargetIndex.value = index;
+            checkMatch();
+        };
+
+        const checkMatch = () => {
+            if (selectedHandIndex.value !== null && selectedTargetIndex.value !== null) {
+                const char1 = currentPlayer.value.hand[selectedHandIndex.value];
+                const char2 = targetCards.value[selectedTargetIndex.value];
+                
+                // 万能牌逻辑
+                const hasUniversal = (char1 === "万能");
+                
+                const match = wordLib.find(word => {
+                    if (hasUniversal) return word.includes(char2); // 万能牌只需目标牌在词库内
+                    return (word.includes(char1) && word.includes(char2) && char1 !== char2);
+                });
+
+                if (match) {
+                    showFeedback(`✨ 成功组成：${match}！`);
+                    currentPlayer.value.hand.splice(selectedHandIndex.value, 1);
+                    replaceTargetCard(selectedTargetIndex.value);
+                    if (currentPlayer.value.hand.length === 0) endGame();
+                    else nextTurn();
+                } else {
+                    showFeedback("❌ 这两个字配不成词语哦");
+                    clearSelection();
+                }
+            }
+        };
+
+        const useSpecial = (index, type) => {
+            lastPlayedSpecial.value = type;
+            selectedHandIndex.value = index;
+
+            if (type === "禁止" || type === "+2" || type === "换手" || type === "小偷") {
+                showTargetPicker.value = true;
+            } else if (type === "万能") {
+                showFeedback("💡 万能字！请点击桌上的字进行配对");
+                // 万能牌逻辑已经在 checkMatch 处理
+            }
+        };
+
+        const resolveSpecial = (targetPlayer) => {
+            const type = lastPlayedSpecial.value;
+            const myIndex = selectedHandIndex.value;
+            
+            if (type === "禁止") {
+                targetPlayer.isSkipped = true;
+                showFeedback(`🚫 ${targetPlayer.name} 被停止一回合`);
+            } else if (type === "+2") {
+                targetPlayer.hand.push(...deck.value.splice(0, 2));
+                showFeedback(`➕ ${targetPlayer.name} 增加了2张牌`);
+            } else if (type === "换手") {
+                const temp = [...currentPlayer.value.hand];
+                temp.splice(myIndex, 1); // 扣掉这张换手牌
+                currentPlayer.value.hand = [...targetPlayer.hand];
+                targetPlayer.hand = temp;
+                showFeedback(`🔄 与 ${targetPlayer.name} 交换了手牌！`);
+            } else if (type === "小偷") {
+                if (targetPlayer.hand.length > 0) {
+                    const stolen = targetPlayer.hand.splice(Math.floor(Math.random()*targetPlayer.hand.length), 1);
+                    currentPlayer.value.hand.push(stolen[0]);
+                    showFeedback(`🕵️ 偷取了 ${targetPlayer.name} 的一张牌！`);
+                }
+            }
+
+            if (type !== "换手") currentPlayer.value.hand.splice(myIndex, 1);
+            
+            showTargetPicker.value = false;
+            if (currentPlayer.value.hand.length === 0) endGame();
+            else nextTurn();
+        };
+
+        const replaceTargetCard = (idx) => {
+            if (deck.value.length > 0) targetCards.value[idx] = deck.value.shift();
+            else targetCards.value.splice(idx, 1);
+        };
+
+        const drawCard = () => {
+            if (deck.value.length > 0) {
+                currentPlayer.value.hand.push(deck.value.shift());
+                showFeedback("无法配对，摸一张牌");
+                nextTurn();
+            } else {
+                showFeedback("牌堆已空，无法摸牌");
+                endGame();
+            }
+        };
+
+        const nextTurn = () => {
+            clearSelection();
+            let nextIdx = (turnIndex.value + 1) % players.value.length;
+            
+            // 处理禁止牌逻辑
+            if (players.value[nextIdx].isSkipped) {
+                players.value[nextIdx].isSkipped = false;
+                turnIndex.value = (nextIdx + 1) % players.value.length;
+                showFeedback(`${players.value[nextIdx].name} 被跳过了`);
+            } else {
+                turnIndex.value = nextIdx;
+            }
+        };
+
+        const clearSelection = () => {
+            selectedHandIndex.value = null;
+            selectedTargetIndex.value = null;
+        };
+
+        const showFeedback = (msg) => {
+            feedback.value = msg;
+            setTimeout(() => feedback.value = '', 2500);
+        };
+
+        const endGame = () => {
+            gameState.value = 'ended';
+            fireConfetti();
+        };
+
+        const fireConfetti = () => {
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        };
+
+        const resetGame = () => gameState.value = 'setup';
+
+        const winner = computed(() => [...players.value].sort((a, b) => a.hand.length - b.hand.length)[0]);
+        const sortedPlayers = computed(() => [...players.value].sort((a, b) => a.hand.length - b.hand.length));
+
+        return {
+            gameState, playerCount, playerNames, players, currentPlayer, targetCards, deck, feedback,
+            selectedHandIndex, selectedTargetIndex, showTargetPicker, lastPlayedSpecial, otherPlayers,
+            startGame, selectHand, selectTarget, drawCard, winner, sortedPlayers, resetGame, resolveSpecial, isSpecial
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
